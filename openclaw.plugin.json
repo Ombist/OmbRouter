@@ -1,0 +1,95 @@
+{
+  "id": "ombrouter",
+  "name": "OmbRouter",
+  "description": "Smart LLM router — 41+ models, x402 micropayments, 92% cost savings",
+  "skills": ["./skills"],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "upstreamMode": {
+        "type": "string",
+        "enum": ["x402", "apiKey", "moonpay"],
+        "description": "Upstream: x402+BlockRun wallet (default), apiKey (OpenAI-compatible), or moonpay (MoonPay CLI `mp x402 request`)."
+      },
+      "upstreamApiBase": {
+        "type": "string",
+        "description": "apiKey: OpenAI-compatible base URL. moonpay: optional HTTPS x402 API base (default https://blockrun.ai/api)."
+      },
+      "moonpayWallet": {
+        "type": "string",
+        "description": "When upstreamMode is moonpay: local wallet name from `mp wallet list`."
+      },
+      "moonpayPaymentChain": {
+        "type": "string",
+        "enum": ["solana", "base", "ethereum", "arbitrum", "polygon", "optimism"],
+        "description": "When upstreamMode is moonpay: chain used to pay x402 (default base)."
+      },
+      "moonpayCliPath": {
+        "type": "string",
+        "description": "When upstreamMode is moonpay: path to `mp` binary (default: mp on PATH)."
+      },
+      "upstreamApiKey": {
+        "type": "string",
+        "description": "When upstreamMode is apiKey: Bearer API key (sensitive)."
+      },
+      "upstreamApiKeyAllowAuxRoutes": {
+        "type": "boolean",
+        "description": "When upstreamMode is apiKey: forward /v1/images/*, /v1/audio/generations, and partner paths to upstreamApiBase with Bearer (default false; or set env OMBROUTER_APIKEY_AUX_ROUTES)."
+      },
+      "walletKey": {
+        "type": "string",
+        "description": "EVM wallet private key (0x...). Required for x402 mode if no saved wallet. Optional — auto-generated if not set."
+      },
+      "routing": {
+        "type": "object",
+        "description": "Override default routing configuration"
+      },
+      "maxCostPerRun": {
+        "type": "number",
+        "description": "Max estimated USD spend per session run (optional)"
+      },
+      "maxCostPerRunMode": {
+        "type": "string",
+        "enum": ["graceful", "strict"]
+      },
+      "maxTokensPerSession": {
+        "type": "number",
+        "description": "Hard cap on total input+output tokens per session (optional)"
+      },
+      "quotaIncludeFreeInUsdCap": {
+        "type": "boolean",
+        "description": "When true, maxCostPerRunUsd also counts free-tier model usage."
+      },
+      "costConfigPath": {
+        "type": "string",
+        "description": "Optional path to cost_config.json — per-model input/output/flat price overrides. Default: OMBROUTER_COST_CONFIG env, else ~/.openclaw/blockrun/cost_config.json"
+      }
+    }
+  },
+  "uiHints": {
+    "walletKey": {
+      "label": "Wallet Private Key",
+      "sensitive": true,
+      "placeholder": "0x... (optional — auto-generated)"
+    },
+    "upstreamApiKey": {
+      "label": "Upstream API key",
+      "sensitive": true
+    },
+    "upstreamApiBase": {
+      "label": "Upstream API base URL",
+      "placeholder": "https://api.openai.com/v1"
+    },
+    "upstreamApiKeyAllowAuxRoutes": {
+      "label": "Forward images/audio/partner to upstream (Bearer)"
+    },
+    "moonpayWallet": {
+      "label": "MoonPay CLI wallet name",
+      "placeholder": "main"
+    },
+    "costConfigPath": {
+      "label": "Path to cost_config.json (optional)",
+      "placeholder": "~/.openclaw/blockrun/cost_config.json"
+    }
+  }
+}

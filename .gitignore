@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-e2e/
+*.tsbuildinfo
+.DS_Store
+.tmp-e2e/
+.playwright-mcp/
+.worktrees/
+.gstack/

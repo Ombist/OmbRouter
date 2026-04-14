@@ -1,0 +1,19 @@
+# Copy to ~/.config/systemd/user/ombrouter-x402.service
+# Auxiliary proxy: images, audio, partner APIs (x402 micropayments).
+# Edit ExecStart if ombrouter is not on PATH.
+
+[Unit]
+Description=OmbRouter x402 proxy (paid auxiliary routes)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=BLOCKRUN_PROXY_PORT=8402
+# Default upstream mode is x402; do not set OMBROUTER_UPSTREAM_MODE=apiKey here.
+Restart=on-failure
+RestartSec=5
+ExecStart=ombrouter
+
+[Install]
+WantedBy=default.target
