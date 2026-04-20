@@ -390,7 +390,7 @@ For basic usage, no configuration needed. For advanced options:
 
 **OpenClaw:** plugin **`id` is `ombrouter`** (v1.0+). Upgrading from v0.12? Run `node scripts/migrate-openclaw-plugin-id.mjs` or update `openclaw.json` manually; see [CHANGELOG](CHANGELOG.md) v1.0.0.
 
-**Full reference:** [docs/configuration.md](docs/configuration.md)
+**Full reference:** [docs/configuration.md](docs/configuration.md) — includes **optional tiered pricing** in `cost_config.json` (`inputTiers`, `outputTiers`, and optional **prompt cache** `cacheReadPrice` / `cacheWritePrice` with tiers) for models that vary rates by context or cache usage.
 
 ### Model Exclusion
 

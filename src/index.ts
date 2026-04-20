@@ -1678,7 +1678,17 @@ export {
   getFallbackChainFiltered,
   calculateModelCost,
 } from "./router/index.js";
-export type { RoutingDecision, RoutingConfig, Tier } from "./router/index.js";
+export type {
+  RoutingDecision,
+  RoutingConfig,
+  Tier,
+  ModelCostOptions,
+  ModelPricing,
+  InputPriceTier,
+  OutputPriceTier,
+  CacheReadPriceTier,
+  CacheWritePriceTier,
+} from "./router/index.js";
 export { logUsage } from "./logger.js";
 export type { UsageEntry } from "./logger.js";
 export { RequestDeduplicator } from "./dedup.js";

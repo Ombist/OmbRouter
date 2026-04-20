@@ -7,6 +7,7 @@ import {
   selectModel,
   type ModelPricing,
 } from "./selector.js";
+import { computeTieredInputCostUsd, computeTieredOutputCostUsd } from "../pricing/tiered-input.js";
 import type { TierConfig } from "./types.js";
 
 const TIER_CONFIGS: Record<"SIMPLE" | "MEDIUM" | "COMPLEX" | "REASONING", TierConfig> = {
@@ -95,5 +96,77 @@ describe("calculateModelCost", () => {
 
     expect(costs.baselineCost).toBeGreaterThan(0);
     expect(costs.savings).toBeGreaterThan(0);
+  });
+
+  it("applies tiered input pricing before margin", () => {
+    const tieredMap = new Map<string, ModelPricing>([
+      [
+        "moonshot/kimi-k2.5",
+        {
+          inputPrice: 0,
+          outputPrice: 0,
+          inputTiers: [
+            { maxInputTokens: 32_768, pricePerMillion: 1 },
+            { maxInputTokens: Number.POSITIVE_INFINITY, pricePerMillion: 2 },
+          ],
+        },
+      ],
+      ["anthropic/claude-opus-4.6", { inputPrice: 5, outputPrice: 25 }],
+    ]);
+    const costs = calculateModelCost("moonshot/kimi-k2.5", tieredMap, 50_000, 0);
+    const tieredPricing = tieredMap.get("moonshot/kimi-k2.5");
+    expect(tieredPricing?.inputTiers).toBeDefined();
+    const rawInput = computeTieredInputCostUsd(50_000, {
+      inputPrice: 0,
+      inputTiers: tieredPricing?.inputTiers,
+    });
+    expect(rawInput).toBeGreaterThan(0);
+    expect(costs.costEstimate).toBeCloseTo(Math.max(rawInput * 1.05, 0.001), 8);
+  });
+
+  it("applies tiered output pricing before margin", () => {
+    const map = new Map<string, ModelPricing>([
+      [
+        "moonshot/kimi-k2.5",
+        {
+          inputPrice: 0,
+          outputPrice: 0,
+          outputTiers: [
+            { maxOutputTokens: 4096, pricePerMillion: 2 },
+            { maxOutputTokens: Number.POSITIVE_INFINITY, pricePerMillion: 8 },
+          ],
+        },
+      ],
+      ["anthropic/claude-opus-4.6", { inputPrice: 5, outputPrice: 25 }],
+    ]);
+    const costs = calculateModelCost("moonshot/kimi-k2.5", map, 0, 8192);
+    const priced = map.get("moonshot/kimi-k2.5");
+    expect(priced?.outputTiers).toBeDefined();
+    const rawOut = computeTieredOutputCostUsd(8192, {
+      outputPrice: 0,
+      outputTiers: priced?.outputTiers,
+    });
+    expect(costs.costEstimate).toBeCloseTo(Math.max(rawOut * 1.05, 0.001), 8);
+  });
+
+  it("includes cache read/write when tokens provided", () => {
+    const map = new Map<string, ModelPricing>([
+      [
+        "moonshot/kimi-k2.5",
+        {
+          inputPrice: 0,
+          outputPrice: 0,
+          cacheReadPrice: 1,
+          cacheWritePrice: 5,
+        },
+      ],
+      ["anthropic/claude-opus-4.6", { inputPrice: 5, outputPrice: 25 }],
+    ]);
+    const costs = calculateModelCost("moonshot/kimi-k2.5", map, 0, 0, undefined, {
+      estimatedCacheReadTokens: 1_000_000,
+      estimatedCacheWriteTokens: 100_000,
+    });
+    const raw = 1 + 0.5; // $1/M read + $5/M * 0.1M write
+    expect(costs.costEstimate).toBeCloseTo(Math.max(raw * 1.05, 0.001), 8);
   });
 });

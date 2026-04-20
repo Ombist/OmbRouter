@@ -9,6 +9,16 @@
  */
 
 import type { ModelDefinitionConfig, ModelProviderConfig } from "./types.js";
+import {
+  getDisplayCacheReadPricePerMillion,
+  getDisplayCacheWritePricePerMillion,
+  getDisplayInputPricePerMillion,
+  getDisplayOutputPricePerMillion,
+  type CacheReadPriceTier,
+  type CacheWritePriceTier,
+  type InputPriceTier,
+  type OutputPriceTier,
+} from "./pricing/tiered-input.js";
 import type { ModelPricing } from "./router/selector.js";
 
 /**
@@ -198,6 +208,18 @@ type BlockRunModel = {
   version?: string;
   inputPrice: number;
   outputPrice: number;
+  /**
+   * Optional cumulative input token tiers ($/1M). When set, routing estimates use tiered input cost;
+   * OpenClaw `cost.input` shows the first segment rate — see docs/configuration.md.
+   */
+  inputTiers?: InputPriceTier[];
+  /** Cumulative output token tiers ($/1M); OpenClaw `cost.output` shows first segment — see docs. */
+  outputTiers?: OutputPriceTier[];
+  /** USD per 1M prompt cache read tokens. */
+  cacheReadPrice?: number;
+  cacheWritePrice?: number;
+  cacheReadTiers?: CacheReadPriceTier[];
+  cacheWriteTiers?: CacheWritePriceTier[];
   contextWindow: number;
   maxOutput: number;
   reasoning?: boolean;
@@ -961,10 +983,10 @@ function toOpenClawModel(m: BlockRunModel): ModelDefinitionConfig {
     reasoning: m.reasoning ?? false,
     input: m.vision ? ["text", "image"] : ["text"],
     cost: {
-      input: m.inputPrice,
-      output: m.outputPrice,
-      cacheRead: 0,
-      cacheWrite: 0,
+      input: getDisplayInputPricePerMillion(m),
+      output: getDisplayOutputPricePerMillion(m),
+      cacheRead: getDisplayCacheReadPricePerMillion(m),
+      cacheWrite: getDisplayCacheWritePricePerMillion(m),
     },
     contextWindow: m.contextWindow,
     maxTokens: m.maxOutput,
@@ -999,7 +1021,23 @@ export function buildOpenClawModelsWithPricing(modelPricing: Map<string, ModelPr
     const p = modelPricing.get(m.id);
     const inputPrice = p?.inputPrice ?? m.inputPrice;
     const outputPrice = p?.outputPrice ?? m.outputPrice;
-    return toOpenClawModel({ ...m, inputPrice, outputPrice });
+    const inputTiers = p?.inputTiers ?? m.inputTiers;
+    const outputTiers = p?.outputTiers ?? m.outputTiers;
+    const cacheReadPrice = p?.cacheReadPrice ?? m.cacheReadPrice;
+    const cacheWritePrice = p?.cacheWritePrice ?? m.cacheWritePrice;
+    const cacheReadTiers = p?.cacheReadTiers ?? m.cacheReadTiers;
+    const cacheWriteTiers = p?.cacheWriteTiers ?? m.cacheWriteTiers;
+    return toOpenClawModel({
+      ...m,
+      inputPrice,
+      outputPrice,
+      inputTiers,
+      outputTiers,
+      cacheReadPrice,
+      cacheWritePrice,
+      cacheReadTiers,
+      cacheWriteTiers,
+    });
   });
 
   const aliasWithPricing: ModelDefinitionConfig[] = Object.entries(MODEL_ALIASES)
@@ -1009,12 +1047,24 @@ export function buildOpenClawModelsWithPricing(modelPricing: Map<string, ModelPr
       const p = modelPricing.get(targetId);
       const inputPrice = p?.inputPrice ?? target.inputPrice;
       const outputPrice = p?.outputPrice ?? target.outputPrice;
+      const inputTiers = p?.inputTiers ?? target.inputTiers;
+      const outputTiers = p?.outputTiers ?? target.outputTiers;
+      const cacheReadPrice = p?.cacheReadPrice ?? target.cacheReadPrice;
+      const cacheWritePrice = p?.cacheWritePrice ?? target.cacheWritePrice;
+      const cacheReadTiers = p?.cacheReadTiers ?? target.cacheReadTiers;
+      const cacheWriteTiers = p?.cacheWriteTiers ?? target.cacheWriteTiers;
       return toOpenClawModel({
         ...target,
         id: alias,
         name: `${alias} → ${target.name}`,
         inputPrice,
         outputPrice,
+        inputTiers,
+        outputTiers,
+        cacheReadPrice,
+        cacheWritePrice,
+        cacheReadTiers,
+        cacheWriteTiers,
       });
     })
     .filter((m): m is ModelDefinitionConfig => m !== null);

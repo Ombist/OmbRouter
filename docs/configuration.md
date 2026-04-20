@@ -59,6 +59,20 @@ If the file is missing or empty, built-in pricing is used unchanged.
 | `outputPrice` | USD per **1M output tokens** (optional override) |
 | `flatPrice` | Fixed **USD per request** — overrides built-in promo flat pricing for that model when set |
 | `clearFlatPrice` | When `true`, **removes** flat pricing (promo or prior override) so estimates use token `inputPrice` / `outputPrice` only |
+| `inputTiers` | Optional **cumulative** input segments (see below). Replaces built-in tiers for that model when set. Each segment has `maxInputTokens` (cumulative upper bound) and `pricePerMillion`. Use `"maxInputTokens": null` on the **last** segment for “all remaining input tokens”. |
+| `clearInputTiers` | When `true`, **removes** tiered input pricing so estimates use scalar `inputPrice` for the full prompt only |
+| `outputTiers` | Optional **cumulative** completion-token segments (same rules as `inputTiers`, but each row uses `maxOutputTokens`). Replaces built-in output tiers when set. |
+| `clearOutputTiers` | When `true`, remove tiered output pricing; use scalar `outputPrice` only. |
+| `cacheReadPrice` | USD per **1M prompt cache read** tokens (optional). Default when omitted: **0** in estimates unless tiers set. |
+| `cacheWritePrice` | USD per **1M prompt cache write** tokens (optional). Default when omitted: **0**. |
+| `cacheReadTiers` | Optional cumulative tiers for cache reads; each row uses `maxCacheReadTokens` (or `null` for remainder). |
+| `cacheWriteTiers` | Optional cumulative tiers for cache writes; each row uses `maxCacheWriteTokens` (or `null` for remainder). |
+| `clearCacheReadTiers` | Remove tiered cache-read pricing. |
+| `clearCacheWriteTiers` | Remove tiered cache-write pricing. |
+
+**Tiered input pricing:** Each tier’s `maxInputTokens` is a **cumulative** bound: the first segment covers `(0, max₁]`, the second `(max₁, max₂]`, and so on. Any input tokens **past the last tier** are charged at scalar `inputPrice` (fallback). When `inputTiers` is present, **routing cost estimates**, **x402 pre-auth estimates**, and related logs use the tiered formula; **OpenClaw’s injected `cost.input`** still shows a **single number** — the **first segment’s** `pricePerMillion` (reference rate for short contexts), not a blended average.
+
+**Tiered output pricing:** Same cumulative semantics using `maxOutputTokens`. **OpenClaw `cost.output`** shows the **first segment** rate (or scalar `outputPrice`). **Cache read/write:** **OpenClaw `cost.cacheRead` / `cost.cacheWrite`** show the **first segment** rate or the scalar price. **Pre-request** path (`estimate-amount`, balance pre-checks based on it) includes **input + output** tiered math; it does **not** add cache charges (no cache token counts on the client). **`calculateModelCost`** can include cache when `estimatedCacheReadTokens` / `estimatedCacheWriteTokens` are passed (e.g. from usage logs). If those counts are **0** or omitted, cache cost is **0**.
 
 Unknown model IDs log a warning and are ignored. **Actual x402 settlement** still follows the upstream/facilitator; overrides affect **local math and UI** only.
 
@@ -74,6 +88,14 @@ Example `~/.openclaw/blockrun/cost_config.json`:
     "anthropic/claude-sonnet-4.6": {
       "inputPrice": 3.0,
       "outputPrice": 15.0
+    },
+    "google/gemini-2.5-pro": {
+      "inputPrice": 4.0,
+      "outputPrice": 12.0,
+      "inputTiers": [
+        { "maxInputTokens": 32768, "pricePerMillion": 2.0 },
+        { "maxInputTokens": null, "pricePerMillion": 4.0 }
+      ]
     }
   }
 }

@@ -39,4 +39,11 @@ export type {
   RouterOptions,
   RouterStrategy,
 } from "./types.js";
-export type { ModelPricing } from "./selector.js";
+export type {
+  ModelPricing,
+  ModelCostOptions,
+  InputPriceTier,
+  OutputPriceTier,
+  CacheReadPriceTier,
+  CacheWritePriceTier,
+} from "./selector.js";

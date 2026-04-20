@@ -6,12 +6,40 @@
  */
 
 import type { Tier, TierConfig, RoutingDecision } from "./types.js";
+import {
+  computeTieredCacheReadCostUsd,
+  computeTieredCacheWriteCostUsd,
+  computeTieredInputCostUsd,
+  computeTieredOutputCostUsd,
+  type CacheReadPriceTier,
+  type CacheWritePriceTier,
+  type InputPriceTier,
+  type OutputPriceTier,
+} from "../pricing/tiered-input.js";
+
+export type { InputPriceTier, OutputPriceTier, CacheReadPriceTier, CacheWritePriceTier };
 
 export type ModelPricing = {
   inputPrice: number; // per 1M tokens
   outputPrice: number; // per 1M tokens
   /** Active promo flat price per request (overrides token-based pricing when set) */
   flatPrice?: number;
+  /** Optional cumulative input token tiers (see docs/configuration.md). When absent, inputPrice applies to all input tokens. */
+  inputTiers?: InputPriceTier[];
+  /** Optional cumulative output token tiers. When absent, outputPrice applies to all completion tokens. */
+  outputTiers?: OutputPriceTier[];
+  /** USD per 1M prompt cache read tokens. Default 0. */
+  cacheReadPrice?: number;
+  /** USD per 1M prompt cache write tokens. Default 0. */
+  cacheWritePrice?: number;
+  cacheReadTiers?: CacheReadPriceTier[];
+  cacheWriteTiers?: CacheWritePriceTier[];
+};
+
+/** Optional token counts for cache (when unknown, omit or pass 0). */
+export type ModelCostOptions = {
+  estimatedCacheReadTokens?: number;
+  estimatedCacheWriteTokens?: number;
 };
 
 const BASELINE_MODEL_ID = "anthropic/claude-opus-4.6";
@@ -46,8 +74,15 @@ export function selectModel(
   } else {
     const inputPrice = pricing?.inputPrice ?? 0;
     const outputPrice = pricing?.outputPrice ?? 0;
-    costEstimate =
-      (estimatedInputTokens / 1_000_000) * inputPrice + (maxOutputTokens / 1_000_000) * outputPrice;
+    const inputCost = computeTieredInputCostUsd(estimatedInputTokens, {
+      inputPrice,
+      inputTiers: pricing?.inputTiers,
+    });
+    const outputCost = computeTieredOutputCostUsd(maxOutputTokens, {
+      outputPrice,
+      outputTiers: pricing?.outputTiers,
+    });
+    costEstimate = inputCost + outputCost;
   }
 
   // Baseline: what Claude Opus 4.5 would cost (the premium reference)
@@ -102,8 +137,11 @@ export function calculateModelCost(
   estimatedInputTokens: number,
   maxOutputTokens: number,
   routingProfile?: "free" | "eco" | "auto" | "premium",
+  costOptions?: ModelCostOptions,
 ): { costEstimate: number; baselineCost: number; savings: number } {
   const pricing = modelPricing.get(model);
+  const cacheReadTok = costOptions?.estimatedCacheReadTokens ?? 0;
+  const cacheWriteTok = costOptions?.estimatedCacheWriteTokens ?? 0;
 
   let costEstimate: number;
   if (pricing?.flatPrice !== undefined) {
@@ -113,11 +151,25 @@ export function calculateModelCost(
     // Defensive: guard against undefined price fields (not just undefined pricing)
     const inputPrice = pricing?.inputPrice ?? 0;
     const outputPrice = pricing?.outputPrice ?? 0;
-    const inputCost = (estimatedInputTokens / 1_000_000) * inputPrice;
-    const outputCost = (maxOutputTokens / 1_000_000) * outputPrice;
+    const inputCost = computeTieredInputCostUsd(estimatedInputTokens, {
+      inputPrice,
+      inputTiers: pricing?.inputTiers,
+    });
+    const outputCost = computeTieredOutputCostUsd(maxOutputTokens, {
+      outputPrice,
+      outputTiers: pricing?.outputTiers,
+    });
+    const cacheReadCost = computeTieredCacheReadCostUsd(cacheReadTok, {
+      cacheReadPrice: pricing?.cacheReadPrice ?? 0,
+      cacheReadTiers: pricing?.cacheReadTiers,
+    });
+    const cacheWriteCost = computeTieredCacheWriteCostUsd(cacheWriteTok, {
+      cacheWritePrice: pricing?.cacheWritePrice ?? 0,
+      cacheWriteTiers: pricing?.cacheWriteTiers,
+    });
     // Include server margin + minimum payment to match actual x402 charge
     costEstimate = Math.max(
-      (inputCost + outputCost) * (1 + SERVER_MARGIN_PERCENT / 100),
+      (inputCost + outputCost + cacheReadCost + cacheWriteCost) * (1 + SERVER_MARGIN_PERCENT / 100),
       MIN_PAYMENT_USD,
     );
   }

@@ -1,6 +1,7 @@
 import { BLOCKRUN_MODELS } from "../models.js";
 import type { ModelPricing } from "../router/selector.js";
 import { buildEffectiveModelPricing } from "../pricing/cost-config.js";
+import { computeTieredInputCostUsd, computeTieredOutputCostUsd } from "../pricing/tiered-input.js";
 
 export type EstimateAmountFn = (
   modelId: string,
@@ -26,9 +27,15 @@ export function createEstimateAmount(modelPricing: Map<string, ModelPricing>): E
     } else {
       const estimatedInputTokens = Math.ceil(bodyLength / 4);
       const estimatedOutputTokens = maxTokens || model.maxOutput || 4096;
-      costUsd =
-        (estimatedInputTokens / 1_000_000) * pricing.inputPrice +
-        (estimatedOutputTokens / 1_000_000) * pricing.outputPrice;
+      const inputCost = computeTieredInputCostUsd(estimatedInputTokens, {
+        inputPrice: pricing.inputPrice,
+        inputTiers: pricing.inputTiers,
+      });
+      const outputCost = computeTieredOutputCostUsd(estimatedOutputTokens, {
+        outputPrice: pricing.outputPrice,
+        outputTiers: pricing.outputTiers,
+      });
+      costUsd = inputCost + outputCost;
     }
 
     const amountMicros = Math.max(1000, Math.ceil(costUsd * 1.2 * 1_000_000));
