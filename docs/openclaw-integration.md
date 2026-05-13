@@ -12,6 +12,14 @@ OmbRouter is an OpenClaw plugin (`id: ombrouter` in the manifest) that starts a 
 | TLS/mTLS from OpenClaw’s HTTP client **to** the local proxy | **OpenClaw** | Configure under `models.providers.ombrouter.request.tls` (and related `request.*` fields) in `openclaw.json` if you terminate TLS in front of the proxy (uncommon; default is plain HTTP on loopback). |
 | TLS from the **proxy** to the upstream API | **Node/`fetch`** | Use an `https://` upstream `baseUrl`; optional corporate HTTP proxy via `upstreamProxy` / env. |
 
+## Ombist hosts: fragments vs on-disk `openclaw.json`
+
+On machines provisioned by **Ombot** / **Ombist iOS**, OpenClaw may be driven from **`openclaw.d/*.json` fragments** merged by **`openclaw-compose.mjs`** into the effective config at **`OPENCLAW_RUNTIME_CONFIG_PATH`** (with a root-owned copy under `/etc/ombot/openclaw.json`). **OmbRouter’s injector still only fills missing keys** in whatever JSON the Gateway loads; it does not replace your fragment authoring workflow.
+
+If the Gateway or other tooling **persists** injected fields back to the same path Ombot treats as authoritative, operators should **not** treat that post-run file as the source of truth for fragments—**re-run compose** after intentional changes, and follow Ombot’s README for the `openclaw-compose` / `ensure-openclaw-gateway-agent` contract.
+
+**Ombist route sync:** when `SYNC_OPENCLAW_PATCH_TARGET` is unset, `ombot-admin route sync` defaults to **fragment** mode on hosts that already have headless-style fragments under `OPENCLAW_FRAGMENTS_DIR` (`10-gateway-transport.json` or `20-gateway-security.json` present), so App-driven patches align with the fragment workflow instead of overwriting the composed runtime JSON only.
+
 ## Default: HTTP on loopback
 
 The supported default is **`http://127.0.0.1:<port>/v1`** for OpenClaw → OmbRouter. You do **not** need mTLS for that hop in a typical single-user desktop setup.

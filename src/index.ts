@@ -96,6 +96,13 @@ import { buildPartnerTools, PARTNER_SERVICES } from "./partners/index.js";
 import { createStatsCommand } from "./commands/stats.js";
 import { createExcludeCommand } from "./commands/exclude.js";
 
+function resolveHomeDir(): string {
+  const raw = String(process.env.HOME ?? homedir() ?? "").trim();
+  if (!raw) return "/home/ombot";
+  if (raw.startsWith("/")) return raw;
+  return `/${raw.replace(/^\.?\//, "")}`;
+}
+
 /**
  * Install OmbRouter skills into OpenClaw's workspace skills directory.
  *
@@ -128,7 +135,7 @@ function installSkillsToWorkspace(logger: {
     const profile = (process["env"].OPENCLAW_PROFILE ?? "").trim().toLowerCase();
     const workspaceDirName =
       profile && profile !== "default" ? `workspace-${profile}` : "workspace";
-    const workspaceSkillsDir = join(homedir(), ".openclaw", workspaceDirName, "skills");
+    const workspaceSkillsDir = join(resolveHomeDir(), ".openclaw", workspaceDirName, "skills");
     mkdirSync(workspaceSkillsDir, { recursive: true });
 
     // Scan bundled skills: each subdirectory contains a SKILL.md
@@ -220,7 +227,7 @@ function injectModelsConfig(
   },
 ): void {
   const { openClawModels: openClawModelsEffective, costRevision: costConfigRevision } = bundle;
-  const configDir = join(homedir(), ".openclaw");
+  const configDir = join(resolveHomeDir(), ".openclaw");
   const configPath = join(configDir, "openclaw.json");
 
   let config: Record<string, unknown> = {};
@@ -469,7 +476,7 @@ function injectModelsConfig(
  * We inject a placeholder so the lookup succeeds (proxy handles real auth internally).
  */
 function injectAuthProfile(logger: { info: (msg: string) => void }): void {
-  const agentsDir = join(homedir(), ".openclaw", "agents");
+  const agentsDir = join(resolveHomeDir(), ".openclaw", "agents");
 
   // Create agents directory if it doesn't exist
   if (!existsSync(agentsDir)) {
@@ -823,8 +830,8 @@ async function startProxyInBackground(api: OpenClawPluginApi): Promise<void> {
  */
 
 // Local directories where the proxy saves media files
-const IMAGE_DIR = join(homedir(), ".openclaw", "blockrun", "images");
-const AUDIO_DIR = join(homedir(), ".openclaw", "blockrun", "audio");
+const IMAGE_DIR = join(resolveHomeDir(), ".openclaw", "blockrun", "images");
+const AUDIO_DIR = join(resolveHomeDir(), ".openclaw", "blockrun", "audio");
 
 /**
  * Build the ImageGenerationProvider that registers BlockRun image models
@@ -1569,7 +1576,7 @@ const plugin: OpenClawPluginDefinition = {
 
     // 2. Clean openclaw.json — remove provider, plugin entries, model allowlist
     try {
-      const configPath = join(homedir(), ".openclaw", "openclaw.json");
+      const configPath = join(resolveHomeDir(), ".openclaw", "openclaw.json");
       if (existsSync(configPath)) {
         const config = JSON.parse(readTextFileSync(configPath));
 
@@ -1615,7 +1622,7 @@ const plugin: OpenClawPluginDefinition = {
 
     // 3. Clean auth profiles
     try {
-      const agentsDir = join(homedir(), ".openclaw", "agents");
+      const agentsDir = join(resolveHomeDir(), ".openclaw", "agents");
       if (existsSync(agentsDir)) {
         for (const entry of readdirSync(agentsDir, { withFileTypes: true })) {
           if (!entry.isDirectory()) continue;

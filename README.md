@@ -78,6 +78,10 @@ OmbRouter defaults to **x402 + BlockRun + local wallet** (no API key). You can a
 
 Need **both** BYOK chat and x402-paid images/partners? Run **two** proxies on different ports — [docs/dual-proxy-deployment.md](docs/dual-proxy-deployment.md) (optional Linux user units: [scripts/systemd/README.md](scripts/systemd/README.md)).
 
+## Ombist remote install / probe (SSH)
+
+For **OMB-mode** hosts, Ombist can run `scripts/ombist-remote-probe.sh` and `scripts/ombist-remote-install.sh` from a checkout instead of using `ombot-admin`. JSON output matches the `ombot-admin --json` envelope. See [docs/ombist-remote-maintenance.md](docs/ombist-remote-maintenance.md).
+
 ## Quick Start
 
 ### Option A — OpenClaw Agent
